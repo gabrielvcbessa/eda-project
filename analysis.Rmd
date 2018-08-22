@@ -1,0 +1,15 @@
+---
+title: "Real State Exploration"
+output: html_notebook
+author: "Gabriel Bessa"
+date: "August 17, 2018"
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df.raw <- read.csv('net_apartments.csv')
+df.raw[df.raw == ''] <- NA # We are going to threat spaces as NA's
+
+df <- df.raw[, colSums(is.na(df.raw)) < nrow(df.raw)]
+```
+
+# Univariate Plots Section
