@@ -6,10 +6,61 @@ date: "August 17, 2018"
 ---
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+
 df.raw <- read.csv('net_apartments.csv')
 df.raw[df.raw == ''] <- NA # We are going to threat spaces as NA's
 
-df <- df.raw[, colSums(is.na(df.raw)) < nrow(df.raw)]
+df <- df.raw[, colSums(is.na(df.raw)) < nrow(df.raw)] %>% 
+  select(vagasGaragem,
+         areaRealPrivativa,
+         sistemaDeAlarme,
+         salaoDeJogos,
+         mobiliado,
+         guarita,
+         gasCanalizado,
+         valorImovel,
+         playGround,
+         piscina,
+         churrasqueira,
+         pontuacao,
+         latitude2,
+         longitude2,
+         quartos,
+         valorCondominio,
+         valorLocacao,
+         tipoImovel1Al,
+         sauna,
+         academia,
+         nomeBairroAl,
+         imovelSan_Id,
+         suites,
+         portariaPermanente) %>% 
+  rename(id = imovelSan_Id,
+         size = areaRealPrivativa,
+         propertyType = tipoImovel1Al,
+         rentalPrice = valorLocacao,
+         propertyPrice = valorImovel,
+         parkingSpaces = vagasGaragem,
+         alarmSystem = sistemaDeAlarme,
+         gameRoom = salaoDeJogos,
+         furnished = mobiliado,
+         securityCabin = guarita,
+         pipedGas = gasCanalizado,
+         swimmingPool = piscina,
+         barbecueGrill = churrasqueira,
+         score = pontuacao,
+         latitude = latitude2,
+         longitude = longitude2,
+         bedrooms = quartos,
+         monthlyFees = valorCondominio,
+         steamRoom = sauna,
+         gym = academia,
+         neighborhood = nomeBairroAl,
+         permanentDoorman = portariaPermanente) %>% 
+  mutate(m2RentalPrice = rentalPrice / size)
+
+df <- transform(df, link = paste('https://www.netimoveis.com/imovel/dummy', id, sep = '/'))
 ```
 
 # Univariate Plots Section

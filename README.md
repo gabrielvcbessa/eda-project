@@ -1,4 +1,4 @@
 ## Exploratory data analysis project
 
-This project is based on [this](https://www.google.com/url?q=https://s3.amazonaws.com/udacity-hosted-downloads/ud651/prosperLoanData.csv&sa=D&ust=1533264120969000) dataset.
+This project is based on the data that we crawled on [Net Imóveis](https://www.netimoveis.com), using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
 
