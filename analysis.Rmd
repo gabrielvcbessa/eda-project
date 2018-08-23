@@ -1,9 +1,17 @@
 ---
 title: "Real State Exploration"
-output: html_notebook
 author: "Gabriel Bessa"
 date: "August 17, 2018"
+output:
+  html_document:
+    df_print: paged
 ---
+
+# Introduction
+
+Moving away from home for the first time is often a experience that most of people will always remember. This experience can be either really good or really bad. I know that someday it will be my turn, so I decided to prepare my self to do it.
+
+This report will explore a dataset containing rental prices and attributes for approximately 2,2018 apartments that are located on my hometown (Belo Horizonte, Brazil). This data set was crawled from [NetImoveis](https://www.netimoveis.com/) using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(dplyr)
@@ -63,4 +71,29 @@ df <- df.raw[, colSums(is.na(df.raw)) < nrow(df.raw)] %>%
 df <- transform(df, link = paste('https://www.netimoveis.com/imovel/dummy', id, sep = '/'))
 ```
 
-# Univariate Plots Section
+# Analysis
+## Plotting locations
+
+Usually we starting looking for apartments on certain locations that we have interest in, ignoring others that maybe aren't that close to our interest point, but can be a good option if you consider the price. So, remove this bias, we want to have a dataset that contains apartments from different regions. Let's see how our apartments are distributed:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggmap)
+library(maps)
+
+pad <- 0.01
+
+coordinates <- c(min(df$longitude) - pad, min(df$latitude) - pad,
+           max(df$longitude) + pad, max(df$latitude) + pad)
+
+map.belo_horizonte <- get_map(location = coordinates,
+                              source = 'stamen')
+
+ggmap(map.belo_horizonte) +
+  geom_point(aes(x = longitude, y = latitude), 
+             data = df, alpha = .75)
+
+```
+
+
+
