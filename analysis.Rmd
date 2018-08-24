@@ -9,9 +9,9 @@ output:
 
 # Introduction
 
-Moving away from home for the first time is often a experience that most of people will always remember. This experience can be either really good or really bad. I know that someday it will be my turn, so I decided to prepare my self to do it.
+Moving away from home for the first time is often a experience that most of people will always remember. This experience can be either really good or really bad. I know that someday it will be my turn, so I decided to prepare my self to do it, and the first step will be understanding how much would cost to rent an apartment in my hometown.
 
-This report will explore a dataset containing rental prices and attributes for approximately 2218 apartments that are located on my hometown (Belo Horizonte, Brazil). This data set was crawled from [NetImoveis](https://www.netimoveis.com/) using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
+This report will explore a dataset containing rental prices and attributes for approximately 2218 apartments that are located at Belo Horizonte, Brazil. This data set was crawled from [NetImoveis](https://www.netimoveis.com/) using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(dplyr)
@@ -88,11 +88,11 @@ map.apartments <- get_map(location = bbox.apartments,
 ggmap(map.apartments) +
   geom_point(aes(x = longitude, y = latitude), 
              data = df, alpha = .75) +
-  theme(plot.margin=grid::unit(c(0, 0, 0, 0), 'mm'))
+  theme(plot.margin = grid::unit(c(0, 0, 0, 0), 'mm')) 
 
 ```
 
-As we can see, we have some misplaced points. Few of them have 0 value for the latitude and longitude, and others are placed on different brazilian capitals. We are going to impute those values and generate our map again. Let's see how our new plot looks like:
+The plot show us that we have some misplaced points. Few of them have 0 value for the latitude and longitude, and others are placed on different brazilian capitals. We are going to impute those values and generate our map again.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(gridExtra)
@@ -128,21 +128,55 @@ p1 <- ggmap(map.imputed) +
 df.imputed.by_neigh <- df.imputed %>% 
   group_by(neighborhood) %>% 
   summarise(count = n(),
-            longitude = mean(longitude),
-            latitude = mean(latitude))
+            longitude.mean = mean(longitude),
+            latitude.mean = mean(latitude),
+            m2RentalPrice.median = median(m2RentalPrice))
 
 bbox.imputed.by_neigh <- 
-  make_bbox(df.imputed.by_neigh$longitude, df.imputed.by_neigh$latitude, f = 0.1)
+  make_bbox(df.imputed.by_neigh$longitude.mean, 
+            df.imputed.by_neigh$latitude.mean, 
+            f = 0.1)
 
 map.imputed.by_neigh <- get_map(location = bbox.imputed.by_neigh,
                                 source = 'stamen')
 
 # Plotting apartments by neighborhood
-p2 <- ggmap(map.imputed, padding = 0) +
-  geom_point(aes(x = longitude, y = latitude, size = count), 
+p2 <- ggmap(map.imputed.by_neigh, padding = 0) +
+  geom_point(aes(x = longitude.mean, y = latitude.mean, size = count), 
              data = df.imputed.by_neigh, alpha = .55) +
-  labs(title = 'Apartments by neighborhood')
+  labs(title = 'Apartments by neighborhood') 
 
 grid.arrange(p1, p2, ncol = 2)
 ```
 
+There are regions with more available apartments than others. Among our 192 neighborhoods our top 5, when considering apartment options, are: Buritis (130), Funcionários (67), Castelo (66), Centro (54) and Gutierrez (51).
+
+Another thing that might be interested to look at is to see how our rental prices are distributed if we consider the apartament's location. We will be analyzing the rental price per square meter, that probably can give us more insights than the raw rental price.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p1 <- ggmap(map.imputed.by_neigh) +
+  geom_point(aes(x = longitude, y = latitude, colour = m2RentalPrice), 
+             data = subset(df.imputed, size > 10), alpha = .5, size = .5) +
+  labs(title = 'Rental price', colour = 'price')
+
+p2 <- ggmap(map.imputed.by_neigh, padding = 0) +
+  geom_point(aes(x = longitude.mean, 
+                 y = latitude.mean, 
+                 colour = m2RentalPrice.median), 
+             data = df.imputed.by_neigh, alpha = .9) +
+  labs(title = 'Median rental price by \nneighborhood', colour = 'median price')
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Seems that the south-west region is one of the most expensives. One of those five neighborhoods that we listed before (Funcionários) is located in this area. Let's see how it's median price compares those four other neighborhoods:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+top5 <- head(
+  df.imputed.by_neigh[order(-df.imputed.by_neigh$count), ],
+  n = 5)
+
+top5[, c('neighborhood', 'm2RentalPrice.median')]
+```
+
+The median rental price of the Funcionários neighborhood is almost 50% more expensive than the other regions, so, as we expected, the location might have a huge impact on the rental price.
