@@ -11,7 +11,7 @@ output:
 
 Moving away from home for the first time is often a experience that most of people will always remember. This experience can be either really good or really bad. I know that someday it will be my turn, so I decided to prepare my self to do it.
 
-This report will explore a dataset containing rental prices and attributes for approximately 2,2018 apartments that are located on my hometown (Belo Horizonte, Brazil). This data set was crawled from [NetImoveis](https://www.netimoveis.com/) using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
+This report will explore a dataset containing rental prices and attributes for approximately 2218 apartments that are located on my hometown (Belo Horizonte, Brazil). This data set was crawled from [NetImoveis](https://www.netimoveis.com/) using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(dplyr)
@@ -81,19 +81,68 @@ library(dplyr)
 library(ggmap)
 library(maps)
 
-pad <- 0.01
+bbox.apartments <- make_bbox(df$longitude, df$latitude, f = 0.05)
+map.apartments <- get_map(location = bbox.apartments,
+                          source = 'stamen')
 
-coordinates <- c(min(df$longitude) - pad, min(df$latitude) - pad,
-           max(df$longitude) + pad, max(df$latitude) + pad)
-
-map.belo_horizonte <- get_map(location = coordinates,
-                              source = 'stamen')
-
-ggmap(map.belo_horizonte) +
+ggmap(map.apartments) +
   geom_point(aes(x = longitude, y = latitude), 
-             data = df, alpha = .75)
+             data = df, alpha = .75) +
+  theme(plot.margin=grid::unit(c(0, 0, 0, 0), 'mm'))
 
 ```
 
+As we can see, we have some misplaced points. Few of them have 0 value for the latitude and longitude, and others are placed on different brazilian capitals. We are going to impute those values and generate our map again. Let's see how our new plot looks like:
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gridExtra)
+
+outlier_values <- boxplot.stats(df$longitude)$out
+outlier_indexes <- which(df$longitude %in% outlier_values)
+outliers <- df[outlier_indexes, ]
+
+# We are going to input some values to the missing locations
+df.by_neigh <- df[-outlier_indexes, ] %>% 
+  group_by(neighborhood) %>% 
+  summarise(latitude = mean(latitude),
+            longitude = mean(longitude))
+
+outliers.imputed <- 
+  transform(outliers,
+            latitude = df.by_neigh[neighborhood == neighborhood, ]$latitude,
+            longitude = df.by_neigh[neighborhood == neighborhood, ]$longitude)
+
+df.imputed <- df
+df.imputed[outlier_indexes, ] <- outliers.imputed
+
+bbox.imputed <- make_bbox(df.imputed$longitude, df.imputed$latitude, f = 0.1)
+map.imputed <- get_map(location = bbox.imputed,
+                          source = 'stamen')
+
+# Plotting all apartments
+p1 <- ggmap(map.imputed) +
+  geom_point(aes(x = longitude, y = latitude), 
+             data = df.imputed, alpha = .25, size = .75) +
+  labs(title = 'All apartments')
+
+df.imputed.by_neigh <- df.imputed %>% 
+  group_by(neighborhood) %>% 
+  summarise(count = n(),
+            longitude = mean(longitude),
+            latitude = mean(latitude))
+
+bbox.imputed.by_neigh <- 
+  make_bbox(df.imputed.by_neigh$longitude, df.imputed.by_neigh$latitude, f = 0.1)
+
+map.imputed.by_neigh <- get_map(location = bbox.imputed.by_neigh,
+                                source = 'stamen')
+
+# Plotting apartments by neighborhood
+p2 <- ggmap(map.imputed, padding = 0) +
+  geom_point(aes(x = longitude, y = latitude, size = count), 
+             data = df.imputed.by_neigh, alpha = .55) +
+  labs(title = 'Apartments by neighborhood')
+
+grid.arrange(p1, p2, ncol = 2)
+```
 
