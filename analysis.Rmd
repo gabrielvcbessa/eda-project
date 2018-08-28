@@ -14,76 +14,28 @@ Moving away from home for the first time is often a experience that most of peop
 This report will explore a dataset containing rental prices and attributes for approximately 2218 apartments that are located at Belo Horizonte, Brazil. This data set was crawled from [NetImoveis](https://www.netimoveis.com/) using the [NetSpider](https://github.com/gabrielvcbessa/real-state-crawlers/blob/master/net_spider.py) crawler.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-library(dplyr)
-
-df.raw <- read.csv('net_apartments.csv')
-df.raw[df.raw == ''] <- NA # We are going to threat spaces as NA's
-
-df <- df.raw[, colSums(is.na(df.raw)) < nrow(df.raw)] %>% 
-  select(vagasGaragem,
-         areaRealPrivativa,
-         sistemaDeAlarme,
-         salaoDeJogos,
-         mobiliado,
-         guarita,
-         gasCanalizado,
-         valorImovel,
-         playGround,
-         piscina,
-         churrasqueira,
-         pontuacao,
-         latitude2,
-         longitude2,
-         quartos,
-         valorCondominio,
-         valorLocacao,
-         tipoImovel1Al,
-         sauna,
-         academia,
-         nomeBairroAl,
-         imovelSan_Id,
-         suites,
-         portariaPermanente) %>% 
-  rename(id = imovelSan_Id,
-         size = areaRealPrivativa,
-         propertyType = tipoImovel1Al,
-         rentalPrice = valorLocacao,
-         propertyPrice = valorImovel,
-         parkingSpaces = vagasGaragem,
-         alarmSystem = sistemaDeAlarme,
-         gameRoom = salaoDeJogos,
-         furnished = mobiliado,
-         securityCabin = guarita,
-         pipedGas = gasCanalizado,
-         swimmingPool = piscina,
-         barbecueGrill = churrasqueira,
-         score = pontuacao,
-         latitude = latitude2,
-         longitude = longitude2,
-         bedrooms = quartos,
-         monthlyFees = valorCondominio,
-         steamRoom = sauna,
-         gym = academia,
-         neighborhood = nomeBairroAl,
-         permanentDoorman = portariaPermanente) %>% 
-  mutate(m2RentalPrice = rentalPrice / size)
-
-df <- transform(df, link = paste('https://www.netimoveis.com/imovel/dummy', id, sep = '/'))
+df <- read.csv('net_apartments.csv')
 ```
 
 # Analysis
 ## Plotting locations
 
-Usually we starting looking for apartments on certain locations that we have interest in, ignoring others that maybe aren't that close to our interest point, but can be a good option if you consider the price. So, remove this bias, we want to have a dataset that contains apartments from different regions. Let's see how our apartments are distributed:
+When handling a dataset that has locations on each observation, the first thing that we might want to do is plotting each observation in a map, and this is what we are going to do.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-library(dplyr)
 library(ggmap)
+library(dplyr)
 library(maps)
 
-bbox.apartments <- make_bbox(df$longitude, df$latitude, f = 0.05)
-map.apartments <- get_map(location = bbox.apartments,
-                          source = 'stamen')
+invisible(gmaps.key <- scan('maps.key', what = 'string'))
+invisible(gmaps.style <- scan('ultra_light.style', what = 'string'))
+
+map.apartments <- get_googlemap(
+  center = c(lon = mean(df$longitude), lat = mean(df$latitude)),
+  maptype = 'roadmap',
+  zoom = 3,
+  style = gmaps.style,
+  key = gmaps.key)
 
 ggmap(map.apartments) +
   geom_point(aes(x = longitude, y = latitude), 
@@ -92,10 +44,12 @@ ggmap(map.apartments) +
 
 ```
 
-The plot show us that we have some misplaced points. Few of them have 0 value for the latitude and longitude, and others are placed on different brazilian capitals. We are going to impute those values and generate our map again.
+The plot show us that we have some misplaced points. Some of them have 0 value for the latitude and longitude, and others are placed on different brazilian capitals. We are going to impute those values and generate our map again.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(geojsonio)
 library(gridExtra)
+library(rgdal)
 
 outlier_values <- boxplot.stats(df$longitude)$out
 outlier_indexes <- which(df$longitude %in% outlier_values)
@@ -115,68 +69,30 @@ outliers.imputed <-
 df.imputed <- df
 df.imputed[outlier_indexes, ] <- outliers.imputed
 
-bbox.imputed <- make_bbox(df.imputed$longitude, df.imputed$latitude, f = 0.1)
-map.imputed <- get_map(location = bbox.imputed,
-                          source = 'stamen')
+bh.json <- geojson_read('bh.geojson', what = 'sp')
+bh.poly <- fortify(bh.json)
 
-# Plotting all apartments
-p1 <- ggmap(map.imputed) +
-  geom_point(aes(x = longitude, y = latitude), 
-             data = df.imputed, alpha = .25, size = .75) +
-  labs(title = 'All apartments')
+bh.map <- get_googlemap(
+  center = c(lon = mean(bh.poly$long), lat = mean(bh.poly$lat)),
+  maptype = 'roadmap',
+  zoom = 11,
+  style = gmaps.style,
+  key = gmaps.key)
 
-df.imputed.by_neigh <- df.imputed %>% 
-  group_by(neighborhood) %>% 
-  summarise(count = n(),
-            longitude.mean = mean(longitude),
-            latitude.mean = mean(latitude),
-            m2RentalPrice.median = median(m2RentalPrice))
-
-bbox.imputed.by_neigh <- 
-  make_bbox(df.imputed.by_neigh$longitude.mean, 
-            df.imputed.by_neigh$latitude.mean, 
-            f = 0.1)
-
-map.imputed.by_neigh <- get_map(location = bbox.imputed.by_neigh,
-                                source = 'stamen')
-
-# Plotting apartments by neighborhood
-p2 <- ggmap(map.imputed.by_neigh, padding = 0) +
-  geom_point(aes(x = longitude.mean, y = latitude.mean, size = count), 
-             data = df.imputed.by_neigh, alpha = .55) +
-  labs(title = 'Apartments by neighborhood') 
-
-grid.arrange(p1, p2, ncol = 2)
+ggmap(bh.map, padding = 0) +
+  geom_polygon(data = bh.poly, 
+               aes(long, lat),
+               size = .55,
+               colour = '#6692CC',
+               fill = '#6692CC',
+               alpha = 0.1) +
+  stat_density2d(data = df.imputed, 
+                 aes(longitude, latitude, 
+                     fill = ..level.., 
+                     alpha = ..level..), 
+                 size = 1, bins = 50, geom = 'polygon') +
+  scale_fill_gradient('Real estate\nDensity', low = 'blue', high = 'orange') +
+  scale_alpha(range = c(.2, .3), guide = FALSE)
 ```
 
-There are regions with more available apartments than others. Among our 192 neighborhoods our top 5, when considering apartment options, are: Buritis (130), Funcionários (67), Castelo (66), Centro (54) and Gutierrez (51).
-
-Another thing that might be interested to look at is to see how our rental prices are distributed if we consider the apartament's location. We will be analyzing the rental price per square meter, that probably can give us more insights than the raw rental price.
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-p1 <- ggmap(map.imputed.by_neigh) +
-  geom_point(aes(x = longitude, y = latitude, colour = m2RentalPrice), 
-             data = subset(df.imputed, size > 10), alpha = .5, size = .5) +
-  labs(title = 'Rental price', colour = 'price')
-
-p2 <- ggmap(map.imputed.by_neigh, padding = 0) +
-  geom_point(aes(x = longitude.mean, 
-                 y = latitude.mean, 
-                 colour = m2RentalPrice.median), 
-             data = df.imputed.by_neigh, alpha = .9) +
-  labs(title = 'Median rental price by \nneighborhood', colour = 'median price')
-
-grid.arrange(p1, p2, ncol = 2)
-```
-
-Seems that the south-west region is one of the most expensives. One of those five neighborhoods that we listed before (Funcionários) is located in this area. Let's see how it's median price compares those four other neighborhoods:
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-top5 <- head(
-  df.imputed.by_neigh[order(-df.imputed.by_neigh$count), ],
-  n = 5)
-
-top5[, c('neighborhood', 'm2RentalPrice.median')]
-```
-
-The median rental price of the Funcionários neighborhood is almost 50% more expensive than the other regions, so, as we expected, the location might have a huge impact on the rental price.
+With this heatmap we can see that we have observations from most neighborhoods of the city, but in the south-west region we have a higher density. 
