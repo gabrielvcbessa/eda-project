@@ -79,12 +79,14 @@ bh.map <- get_googlemap(
   style = gmaps.style,
   key = gmaps.key)
 
+bh.bbox <- attr(bh.map, 'bb')
+
 ggmap(bh.map, padding = 0) +
   geom_polygon(data = bh.poly, 
                aes(long, lat),
                size = .55,
                colour = '#6692CC',
-               fill = '#6692CC',
+               fill = NA,
                alpha = 0.1) +
   stat_density2d(data = df.imputed, 
                  aes(longitude, latitude, 
@@ -92,7 +94,7 @@ ggmap(bh.map, padding = 0) +
                      alpha = ..level..), 
                  size = 1, bins = 50, geom = 'polygon') +
   scale_fill_gradient('Real estate\nDensity', low = 'blue', high = 'orange') +
-  scale_alpha(range = c(.2, .3), guide = FALSE)
+  scale_alpha(range = c(.1, .3), guide = FALSE)
 ```
 
 With this heatmap we can see that we have observations from most neighborhoods of the city, but in the south-west region we have a higher density. 
